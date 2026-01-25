@@ -1,0 +1,307 @@
+name: Semantic Versioning & Auto-Tagging
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version type to bump'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+env:
+  VERSION_FILE: 'version.txt'
+  PACKAGE_JSON: 'package.json'
+  POM_FILE: 'pom.xml'
+
+jobs:
+  version-tag:
+    name: Auto-Tag with Semantic Version
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+    
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      version_type: ${{ steps.version.outputs.version_type }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Get Latest Tag
+        id: get_tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+      
+      - name: Parse Current Version
+        id: parse_version
+        run: |
+          TAG=${{ steps.get_tag.outputs.latest_tag }}
+          # Remove 'v' prefix
+          VERSION=${TAG#v}
+          
+          # Split into MAJOR.MINOR.PATCH
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          MAJOR=${MAJOR:-0}
+          MINOR=${MINOR:-0}
+          PATCH=${PATCH:-0}
+          
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+      
+      - name: Determine Version Increment
+        id: increment
+        run: |
+          BRANCH=${{ github.ref_name }}
+          
+          # Get commit messages since last tag
+          COMMITS=$(git log ${{ steps.get_tag.outputs.latest_tag }}..HEAD --pretty=format:%s 2>/dev/null || git log --pretty=format:%s -1)
+          
+          # Determine version bump based on commit messages
+          VERSION_TYPE="patch"  # default
+          
+          if echo "$COMMITS" | grep -i "^feat!:" || echo "$COMMITS" | grep -i "^refactor!:" || echo "$COMMITS" | grep -i "BREAKING CHANGE"; then
+            VERSION_TYPE="major"
+          elif echo "$COMMITS" | grep -i "^feat:"; then
+            VERSION_TYPE="minor"
+          elif echo "$COMMITS" | grep -i "^fix:" || echo "$COMMITS" | grep -i "^hotfix:"; then
+            VERSION_TYPE="patch"
+          fi
+          
+          # Override with workflow input if provided
+          if [ "${{ github.event.inputs.version_type }}" != "" ]; then
+            VERSION_TYPE="${{ github.event.inputs.version_type }}"
+          fi
+          
+          echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
+          echo "Determined version type: $VERSION_TYPE"
+      
+      - name: Calculate New Version
+        id: version
+        run: |
+          MAJOR=${{ steps.parse_version.outputs.major }}
+          MINOR=${{ steps.parse_version.outputs.minor }}
+          PATCH=${{ steps.parse_version.outputs.patch }}
+          
+          VERSION_TYPE=${{ steps.increment.outputs.version_type }}
+          
+          case $VERSION_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+      
+      - name: Check if Tag Already Exists
+        id: check_tag
+        run: |
+          NEW_VERSION=${{ steps.version.outputs.new_version }}
+          if git rev-parse "$NEW_VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $NEW_VERSION already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $NEW_VERSION does not exist, will create"
+          fi
+      
+      - name: Update Version Files
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          NEW_VERSION=${{ steps.version.outputs.new_version }}
+          VERSION_WITHOUT_V=${NEW_VERSION#v}
+          
+          # Update version.txt
+          if [ -f "${{ env.VERSION_FILE }}" ]; then
+            echo "$VERSION_WITHOUT_V" > ${{ env.VERSION_FILE }}
+            echo "Updated version.txt"
+          fi
+          
+          # Update package.json if it exists
+          if [ -f "${{ env.PACKAGE_JSON }}" ]; then
+            npm version $VERSION_WITHOUT_V --no-git-tag-version 2>/dev/null || true
+            echo "Updated package.json"
+          fi
+          
+          # Update pom.xml if it exists
+          if [ -f "${{ env.POM_FILE }}" ]; then
+            mvn versions:set -DnewVersion=$VERSION_WITHOUT_V -DgenerateBackupPoms=false 2>/dev/null || true
+            echo "Updated pom.xml"
+          fi
+      
+      - name: Create Annotated Tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          NEW_VERSION=${{ steps.version.outputs.new_version }}
+          BRANCH=${{ github.ref_name }}
+          VERSION_TYPE=${{ steps.increment.outputs.version_type }}
+          AUTHOR="${{ github.actor }}"
+          
+          # Build commit message based on branch
+          case $BRANCH in
+            main)
+              COMMIT_MSG="Release $NEW_VERSION: Production release"
+              ;;
+            develop)
+              COMMIT_MSG="Snapshot $NEW_VERSION: Development snapshot"
+              ;;
+            *)
+              COMMIT_MSG="Tag $NEW_VERSION: $VERSION_TYPE version bump"
+              ;;
+          esac
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$NEW_VERSION" -m "$COMMIT_MSG" -m "Branch: $BRANCH" -m "Type: $VERSION_TYPE" -m "Author: $AUTHOR"
+          echo "Created tag: $NEW_VERSION"
+      
+      - name: Push Tag to Repository
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git push origin ${{ steps.version.outputs.new_version }}
+          echo "Pushed tag to repository"
+      
+      - name: Commit Version File Changes
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git add version.txt package.json pom.xml 2>/dev/null || true
+          
+          if git diff --cached --quiet; then
+            echo "No version file changes to commit"
+          else
+            git commit -m "chore(release): Update version files to ${{ steps.version.outputs.new_version }}"
+            git push origin HEAD:${{ github.ref_name }}
+            echo "Committed version file changes"
+          fi
+      
+      - name: Create GitHub Release
+        if: github.ref_name == 'main' && steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          name: Release ${{ steps.version.outputs.new_version }}
+          body: |
+            ## Release Information
+            
+            **Version:** ${{ steps.version.outputs.new_version }}
+            **Type:** ${{ steps.increment.outputs.version_type }}
+            **Branch:** ${{ github.ref_name }}
+            
+            ### Changes
+            
+            Commits since last release:
+            
+            ${{ steps.get_commits.outputs.commits }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create Development Release (if develop)
+        if: github.ref_name == 'develop' && steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          name: Development Snapshot ${{ steps.version.outputs.new_version }}
+          body: |
+            ## Development Snapshot
+            
+            **Version:** ${{ steps.version.outputs.new_version }}
+            **Branch:** develop
+            
+            This is a development snapshot, not a stable release.
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notify Team of New Version
+    runs-on: ubuntu-latest
+    needs: version-tag
+    if: needs.version-tag.outputs.new_version != ''
+    
+    steps:
+      - name: Send Slack Notification
+        if: secrets.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "🏷️ New version tagged: ${{ needs.version-tag.outputs.new_version }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "📦 New Version Released"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\n${{ needs.version-tag.outputs.new_version }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Type:*\n${{ needs.version-tag.outputs.version_type }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Author:*\n${{ github.actor }}"
+                    }
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Release"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.version-tag.outputs.new_version }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

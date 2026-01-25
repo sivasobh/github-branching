@@ -1,0 +1,368 @@
+name: Hotfix Automation
+
+on:
+  push:
+    branches:
+      - hotfix/**
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Hotfix version (e.g., 1.0.1)'
+        required: true
+
+jobs:
+  validate-hotfix-branch:
+    name: Validate Hotfix Branch
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Extract Version from Branch
+        id: branch_version
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          
+          # Extract version from branch name (hotfix/v1.0.1)
+          if [[ $BRANCH =~ hotfix/v([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "✅ Hotfix branch version: v$VERSION"
+          else
+            echo "❌ Invalid hotfix branch name format"
+            echo "Expected: hotfix/v1.0.1, hotfix/v1.0.2, etc."
+            exit 1
+          fi
+      
+      - name: Verify Branch Created from Main
+        run: |
+          # Verify hotfix was created from main
+          MERGE_BASE=$(git merge-base origin/main HEAD)
+          CURRENT=$(git rev-parse HEAD)
+          
+          if [ "$MERGE_BASE" != "$CURRENT" ] && git log origin/main..$MERGE_BASE --oneline > /dev/null; then
+            echo "⚠️  Hotfix may not be based directly on main"
+            echo "Best practice: Create hotfix from latest main branch"
+          else
+            echo "✅ Hotfix appears to be based on main"
+          fi
+
+  check-hotfix-commits:
+    name: Verify Hotfix Scope
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get Commits in Hotfix
+        id: commits
+        run: |
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"%s")
+          COUNT=$(echo "$COMMITS" | wc -l)
+          
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Commits in hotfix: $COUNT"
+          echo "$COMMITS"
+      
+      - name: Warn if Too Many Changes
+        if: steps.commits.outputs.count > 5
+        run: |
+          echo "⚠️  WARNING: Hotfix contains ${{ steps.commits.outputs.count }} commits"
+          echo ""
+          echo "Hotfixes should be minimal (1-3 commits)"
+          echo "If more changes are needed, consider using develop instead"
+
+  create-hotfix-release:
+    name: Create Hotfix Release
+    runs-on: ubuntu-latest
+    
+    needs: validate-hotfix-branch
+    
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract Version
+        id: version
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          VERSION=$(echo $BRANCH | sed 's/hotfix\/v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Get Hotfix Commits
+        id: commits
+        run: |
+          COMMITS=$(git log origin/main..HEAD --pretty=format:"- %s (%h)")
+          
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create Hotfix Release Notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          NOTES="# Hotfix v$VERSION
+
+          ## 🔥 Critical Fix
+          
+          This is a critical hotfix release. Deploy immediately to production.
+          
+          ### What's Fixed
+          
+          ${{ steps.commits.outputs.commits }}
+          
+          ### Installation
+          
+          \`\`\`bash
+          npm install @myorg/myapp@$VERSION
+          # or
+          pip install myapp==$VERSION
+          # or
+          docker pull myorg/myapp:$VERSION
+          \`\`\`
+          
+          ### Rollback (if needed)
+          
+          If issues are found with this hotfix:
+          \`\`\`bash
+          # Rollback to previous version
+          # Contact DevOps team for assistance
+          \`\`\`
+          
+          ### Monitoring
+          
+          - Monitor error logs: [Error Dashboard](https://monitoring.example.com)
+          - Check application health: [Health Check](https://app.example.com/health)
+          - Contact support: [Support](https://support.example.com)
+          
+          ---
+          _Released on $(date '+%Y-%m-%d %H:%M:%S UTC')_"
+          
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Hotfix v${{ steps.version.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create Merge PR to Main
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prTitle = `hotfix: merge hotfix/v${{ steps.version.outputs.version }} to main`;
+            const prBody = `## 🔥 CRITICAL HOTFIX MERGE
+            
+            This PR merges the hotfix to main for version **v${{ steps.version.outputs.version }}**.
+            
+            ### Important
+            - ⚠️ This is a critical fix, merge ASAP
+            - ✅ Minimal testing already done
+            - 🚀 Deploy immediately after merge
+            
+            ### Checklist
+            - [ ] Verified all tests pass
+            - [ ] Reviewed code changes
+            - [ ] Tested in production-like environment
+            - [ ] Ready to deploy
+            
+            ### After Merge
+            - New tag created: \`v${{ steps.version.outputs.version }}\`
+            - Deploy to production
+            - Also merge to develop`;
+            
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: prTitle,
+              body: prBody,
+              head: context.ref,
+              base: 'main'
+            });
+            
+            console.log(`Created PR #${pr.data.number} for hotfix merge`);
+      
+      - name: Create Merge PR to Develop
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prTitle = `hotfix: merge hotfix/v${{ steps.version.outputs.version }} to develop`;
+            const prBody = `## Hotfix Sync to Develop
+            
+            This PR syncs the hotfix back to develop.
+            
+            ### Purpose
+            Ensures develop branch has the critical fix
+            
+            ### Merge
+            1. Merge to main first (for production)
+            2. Then merge this PR to develop
+            3. Delete hotfix branch`;
+            
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: prTitle,
+              body: prBody,
+              head: context.ref,
+              base: 'develop'
+            });
+            
+            console.log(`Created PR #${pr.data.number} for develop sync`);
+
+  alert-team:
+    name: Alert Team of Critical Fix
+    runs-on: ubuntu-latest
+    
+    needs: [validate-hotfix-branch, create-hotfix-release]
+    
+    if: success()
+    
+    steps:
+      - name: Extract Version
+        id: version
+        run: |
+          BRANCH="${{ github.ref_name }}"
+          VERSION=$(echo $BRANCH | sed 's/hotfix\/v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Send Critical Alert to Slack
+        if: secrets.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "🚨 CRITICAL HOTFIX RELEASED: v${{ steps.version.outputs.version }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🔥 CRITICAL HOTFIX RELEASED"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Version:*\nv${{ steps.version.outputs.version }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Severity:*\n🔴 CRITICAL"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n⚠️ REQUIRES IMMEDIATE DEPLOYMENT"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚨 *ACTION REQUIRED*: Review and merge PRs immediately\n⏱️ Merge to main → Deploy to production\n✅ Then sync to develop"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View Release"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "View PRs"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/pulls"
+                    },
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Deploy"
+                      },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/deployments"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+      
+      - name: Create GitHub Issue for Incident
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔥 Incident: Critical hotfix v${{ steps.version.outputs.version }} released`,
+              body: `## Critical Hotfix Released
+              
+              **Version:** v${{ steps.version.outputs.version }}
+              **Type:** Critical Production Fix
+              **Released:** ${new Date().toISOString()}
+              
+              ### Actions Taken
+              - [x] Hotfix created
+              - [x] Release published
+              - [ ] Merged to main
+              - [ ] Deployed to production
+              - [ ] Verified in production
+              - [ ] Merged to develop
+              - [ ] Incident investigated
+              - [ ] Root cause identified
+              - [ ] Prevention implemented
+              
+              ### Checklist
+              - [ ] Notify customers
+              - [ ] Update status page
+              - [ ] Document incident
+              - [ ] Post-mortem scheduled
+              
+              **Repository:** ${{ github.repository }}
+              **Release Link:** ${{ github.server_url }}/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}`,
+              labels: ['🔥 critical', '🚨 incident', '⚠️ hotfix']
+            });
+            
+            console.log(`Created incident issue #${issue.data.number}`);

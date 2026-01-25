@@ -203,6 +203,24 @@
 
 ---
 
+### Level 12: GitHub Actions Automation
+```
+📄 12-github-actions-automation.md
+├─ Version tagging workflow
+├─ Branch protection enforcement
+├─ Release automation
+├─ Hotfix automation
+├─ Conventional commits validation
+├─ Workflow setup & configuration
+└─ Next: Automate your process
+```
+
+**Read when:** Setting up continuous integration
+**Time needed:** 30-40 minutes
+**Key takeaway:** Automating versioning and releases
+
+---
+
 ## 🎨 Visual Diagrams
 
 ### Diagram 1: Git Flow Structure

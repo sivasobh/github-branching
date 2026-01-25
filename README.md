@@ -16,6 +16,7 @@ This documentation project provides an in-depth exploration of:
 - **Release Branch** - Planned release procedures
 - **Hotfix Branch** - Emergency production fixes
 - **Version Tagging** - Semantic versioning and release management
+- **GitHub Actions Automation** - Automated versioning, branch protection, and release workflows
 - **Hands-On Examples** - Complete real-world scenarios
 
 ---
@@ -57,6 +58,7 @@ This documentation project provides an in-depth exploration of:
 | [09-hotfix-branch.md](docs/09-hotfix-branch.md) | Emergency fixes | Critical production issues |
 | [10-hands-on-example.md](docs/10-hands-on-example.md) | Complete scenario | Real-world workflow |
 | [11-version-tagging.md](docs/11-version-tagging.md) | Semantic versioning, version tagging | Version management and releases |
+| [12-github-actions-automation.md](docs/12-github-actions-automation.md) | GitHub Actions workflows | Automated CI/CD pipelines |
 
 ### Visual Diagrams
 

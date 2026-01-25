@@ -1,0 +1,282 @@
+name: Branch Protection & Strategy Enforcement
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  validate-branch-name:
+    name: Validate Branch Naming Convention
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Check Branch Naming Convention
+        id: validate
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          
+          echo "Validating branch name: $BRANCH_NAME"
+          
+          # Define allowed patterns
+          VALID=false
+          PATTERN_DESC=""
+          
+          if [[ $BRANCH_NAME =~ ^(main|master)$ ]]; then
+            VALID=true
+            PATTERN_DESC="Production branch"
+          elif [[ $BRANCH_NAME =~ ^develop$ ]]; then
+            VALID=true
+            PATTERN_DESC="Development integration branch"
+          elif [[ $BRANCH_NAME =~ ^feature/[a-z0-9_-]+$ ]]; then
+            VALID=true
+            PATTERN_DESC="Feature branch (feature/*)"
+          elif [[ $BRANCH_NAME =~ ^bugfix/[a-z0-9_-]+$ ]]; then
+            VALID=true
+            PATTERN_DESC="Bug fix branch (bugfix/*)"
+          elif [[ $BRANCH_NAME =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VALID=true
+            PATTERN_DESC="Release branch (release/v*.*.*)"
+          elif [[ $BRANCH_NAME =~ ^hotfix/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VALID=true
+            PATTERN_DESC="Hotfix branch (hotfix/v*.*.*)"
+          elif [[ $BRANCH_NAME =~ ^chore/[a-z0-9_-]+$ ]]; then
+            VALID=true
+            PATTERN_DESC="Chore branch (chore/*)"
+          elif [[ $BRANCH_NAME =~ ^docs/[a-z0-9_-]+$ ]]; then
+            VALID=true
+            PATTERN_DESC="Documentation branch (docs/*)"
+          fi
+          
+          echo "valid=$VALID" >> $GITHUB_OUTPUT
+          echo "pattern=$PATTERN_DESC" >> $GITHUB_OUTPUT
+      
+      - name: Comment on Pull Request
+        if: github.event_name == 'pull_request' && steps.validate.outputs.valid == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ **Invalid branch name: "${{ github.head_ref }}"**
+            
+            Please use one of these naming conventions:
+            - \`feature/feature-name\` - New features
+            - \`bugfix/bug-name\` - Bug fixes
+            - \`release/v1.0.0\` - Release preparation
+            - \`hotfix/v1.0.1\` - Emergency fixes
+            - \`chore/chore-name\` - Maintenance tasks
+            - \`docs/doc-name\` - Documentation updates
+            
+            **Rules:**
+            - Use lowercase letters, numbers, hyphens, and underscores
+            - No spaces or special characters
+            - Be descriptive and concise`
+            })
+      
+      - name: Fail if Invalid
+        if: steps.validate.outputs.valid == 'false'
+        run: exit 1
+
+  validate-commit-messages:
+    name: Validate Commit Message Format
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get All Commits in PR
+        if: github.event_name == 'pull_request'
+        id: commits
+        run: |
+          BASE_COMMIT=${{ github.event.pull_request.base.sha }}
+          HEAD_COMMIT=${{ github.event.pull_request.head.sha }}
+          
+          COMMITS=$(git log ${BASE_COMMIT}..${HEAD_COMMIT} --pretty=format:%s)
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Validate Conventional Commits
+        id: validate
+        run: |
+          COMMITS="${{ steps.commits.outputs.commits }}"
+          INVALID_COMMITS=""
+          INVALID_COUNT=0
+          
+          while IFS= read -r COMMIT; do
+            [ -z "$COMMIT" ] && continue
+            
+            # Check conventional commit format
+            if ! [[ $COMMIT =~ ^(feat|fix|docs|style|refactor|perf|test|chore|ci|revert)(\(.+\))?!?:\ .+ ]]; then
+              INVALID_COMMITS="$INVALID_COMMITS
+          - \`$COMMIT\`"
+              ((INVALID_COUNT++))
+            fi
+          done <<< "$COMMITS"
+          
+          echo "invalid_count=$INVALID_COUNT" >> $GITHUB_OUTPUT
+          echo "invalid_commits=$INVALID_COMMITS" >> $GITHUB_OUTPUT
+      
+      - name: Comment if Invalid
+        if: github.event_name == 'pull_request' && steps.validate.outputs.invalid_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ **Some commits don't follow Conventional Commits format**
+            
+            Found **${{ steps.validate.outputs.invalid_count }}** invalid commit(s):
+            ${{ steps.validate.outputs.invalid_commits }}
+            
+            **Format:** \`type(scope): description\`
+            
+            **Types:**
+            - \`feat\`: New feature
+            - \`fix\`: Bug fix
+            - \`docs\`: Documentation
+            - \`style\`: Code style (formatting, etc.)
+            - \`refactor\`: Code refactoring
+            - \`perf\`: Performance improvements
+            - \`test\`: Tests
+            - \`chore\`: Build, dependencies, etc.
+            
+            **Examples:**
+            - \`feat(auth): add password reset functionality\`
+            - \`fix(api): resolve null pointer exception\`
+            - \`docs(readme): update installation instructions\`
+            - \`refactor(db): optimize query performance\`
+            
+            **Breaking changes:** Add \`!\` before colon
+            - \`feat(api)!: change authentication endpoint\``
+            })
+
+  enforce-branch-protection:
+    name: Enforce Branch Protection Rules
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Check Protection Rules for Main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "✅ Main branch protection rules:"
+          echo "- Require pull request reviews (2 approvals)"
+          echo "- Require status checks to pass"
+          echo "- Require branches to be up to date"
+          echo "- No force pushes allowed"
+          echo "- No direct commits allowed"
+          echo ""
+          echo "This check is informational. Enforce in GitHub Settings."
+      
+      - name: Check Protection Rules for Develop
+        if: github.ref == 'refs/heads/develop'
+        run: |
+          echo "✅ Develop branch protection rules:"
+          echo "- Require pull request reviews (1 approval)"
+          echo "- Require status checks to pass"
+          echo "- Require branches to be up to date"
+          echo "- Limited force pushes (admins only)"
+          echo ""
+          echo "This check is informational. Enforce in GitHub Settings."
+      
+      - name: Verify No Direct Pushes to Main
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "❌ ERROR: Direct push to main branch detected!"
+          echo ""
+          echo "Main branch requires:"
+          echo "1. Create a branch (feature/*, release/*, hotfix/*)"
+          echo "2. Push to your branch"
+          echo "3. Create a Pull Request"
+          echo "4. Get required approvals"
+          echo "5. Merge PR"
+          exit 1
+      
+      - name: Verify No Direct Pushes to Develop
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+        run: |
+          echo "⚠️  WARNING: Direct push to develop branch detected!"
+          echo ""
+          echo "Best practice for develop:"
+          echo "1. Create a branch (feature/*, bugfix/*)"
+          echo "2. Push to your branch"
+          echo "3. Create a Pull Request"
+          echo "4. Get approval and merge"
+
+  check-pr-requirements:
+    name: Check Pull Request Requirements
+    runs-on: ubuntu-latest
+    
+    if: github.event_name == 'pull_request'
+    
+    permissions:
+      contents: read
+      pull-requests: read
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      
+      - name: Check PR Title
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          
+          if [ -z "$TITLE" ] || [ ${#TITLE} -lt 10 ]; then
+            echo "❌ PR title too short or missing"
+            echo "Required: Descriptive title (at least 10 characters)"
+            exit 1
+          fi
+          
+          echo "✅ PR title: $TITLE"
+      
+      - name: Check PR Description
+        run: |
+          BODY="${{ github.event.pull_request.body }}"
+          
+          if [ -z "$BODY" ] || [ ${#BODY} -lt 20 ]; then
+            echo "⚠️  PR description is missing or too short"
+            echo "Recommended: Describe what this PR does"
+          else
+            echo "✅ PR has description"
+          fi
+      
+      - name: Check for WIP (Work in Progress)
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          DRAFT=${{ github.event.pull_request.draft }}
+          
+          if [[ $TITLE =~ \[WIP\]|\[DRAFT\] ]] || [ "$DRAFT" = "true" ]; then
+            echo "⚠️  PR is marked as WIP/Draft"
+            echo "This will prevent merging until ready"
+          else
+            echo "✅ PR is ready for review"
+          fi
