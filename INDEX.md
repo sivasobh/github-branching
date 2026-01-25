@@ -185,6 +185,24 @@
 
 ---
 
+### Level 11: Version Tagging & Release Management
+```
+📄 11-version-tagging.md
+├─ Semantic versioning (MAJOR.MINOR.PATCH)
+├─ Version tagging by branch
+├─ Version incrementation rules
+├─ Tagging workflow
+├─ Pre-release versions
+├─ Multi-version support
+└─ Next: Master version management
+```
+
+**Read when:** Managing releases and versions
+**Time needed:** 25-35 minutes
+**Key takeaway:** Professional version management
+
+---
+
 ## 🎨 Visual Diagrams
 
 ### Diagram 1: Git Flow Structure
@@ -218,6 +236,17 @@
 ├─ Release cycle
 ├─ Parallel development
 └─ When: Understanding team dynamics
+```
+
+### Diagram 4: Version Tagging
+```
+📄 diagrams/04-version-tagging.txt
+├─ Semantic versioning format
+├─ Version tagging by branch type
+├─ Incrementation examples
+├─ Release cycle timeline
+├─ Pre-release progression
+└─ When: Understanding version management
 ```
 
 ---

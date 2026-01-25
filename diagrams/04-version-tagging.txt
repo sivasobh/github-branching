@@ -1,0 +1,471 @@
+# Version Tagging & Semantic Versioning Diagrams
+
+## 1. Semantic Versioning Structure
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                 SEMANTIC VERSIONING FORMAT                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+                              v2.5.3
+                              │ │ │
+                              │ │ └──── PATCH
+                              │ │       ├─ Bug fixes
+                              │ │       ├─ Security patches
+                              │ │       └─ Hotfixes
+                              │ │
+                              │ └────── MINOR
+                              │         ├─ New features
+                              │         ├─ Backwards compatible
+                              │         └─ Feature additions
+                              │
+                              └──────── MAJOR
+                                        ├─ Breaking changes
+                                        ├─ API incompatibilities
+                                        └─ Architectural changes
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║               INCREMENTATION DECISION TREE                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+                    What type of change is this?
+                            │
+                ┌───────────┼───────────┐
+                │           │           │
+           Breaking?    New Feature?  Bug Fix?
+                │           │           │
+               YES          YES         YES
+                │           │           │
+            MAJOR       MINOR        PATCH
+                │           │           │
+            v1.0.0 →    v1.0.0 →    v1.0.0 →
+            v2.0.0      v1.1.0      v1.0.1
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║           VERSION LIFECYCLE & STAGE TRANSITIONS                    ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Development Stage:  v1.1.0-dev.1, v1.1.0-dev.2, v1.1.0-dev.3
+                                    ↓
+Alpha Testing:      v1.1.0-alpha.1, v1.1.0-alpha.2
+                                    ↓
+Beta Testing:       v1.1.0-beta.1, v1.1.0-beta.2, v1.1.0-beta.3
+                                    ↓
+Release Candidate:  v1.1.0-rc.1, v1.1.0-rc.2
+                                    ↓
+Production Ready:   v1.1.0 (stable release)
+                                    ↓
+Hotfix/Patch:       v1.1.1, v1.1.2, v1.1.3
+                                    ↓
+Next Major/Minor:   v1.2.0 or v2.0.0
+```
+
+---
+
+## 2. Version Tagging by Branch Type
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║         MAIN BRANCH: PRODUCTION RELEASES ONLY                      ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Timeline:    Jan      Feb      Mar      Apr      May      Jun
+                │        │        │        │        │        │
+
+MAIN     ─────[●]──────[●]──────[●]──────[●]──────[●]──────[●]─────
+           v1.0.0   v1.0.1   v1.1.0   v1.1.1   v1.2.0   v2.0.0
+                    ↓        ↓        ↓        ↓        ↓
+                  Hotfix  Release  Hotfix  Release  Breaking
+                   Fix     Set      Fix     Set      Changes
+
+╔════════════════════════════════════════════════════════════════════╗
+║        DEVELOP BRANCH: FEATURE INTEGRATION POINT                   ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Timeline:    Week 1   Week 2   Week 3   Week 4
+
+DEVELOP  ─[●]─[●]─[●]──[●]──[●]──[●]──[●]──[●]─
+           │    │    │       │       │
+      Feature Feature Feature Feature Feature
+      #1     #2     #3      #4      #5
+
+Version:   v1.1.0-dev.1 (optional snapshots)
+           v1.1.0-dev.2
+           v1.1.0-dev.3
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║         RELEASE BRANCH: FINAL TESTING & VERSION BUMP               ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Timeline:    Day 1    Day 2    Day 3    Day 4    Day 5
+
+RELEASE  ─[v1.1.0]─[rc.1]──[rc.2]──[testing]──[v1.1.0]─
+           └─ Version  └─ Issue found,  └─ Final QA  └─ Merged
+             bumped      fixed,        approved     to main
+                         rc.2 created
+
+Version:   v1.1.0-rc.1 (Release Candidate 1)
+           v1.1.0-rc.2 (Release Candidate 2)
+           v1.1.0 (Final stable)
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║         HOTFIX BRANCH: CRITICAL PRODUCTION PATCHES                 ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Timeline:    Hour 0   Hour 1   Hour 2   Hour 3   Hour 4
+
+MAIN     ──[v1.0.0]──────────────────[v1.0.1]──
+                                        ↑
+HOTFIX       └──[●]───[●]───[●]───[●]──┘
+             Create  Diagnose  Fix  Test
+             hotfix  problem
+
+Version:   v1.0.1 (only PATCH incremented)
+           NOT v1.1.0 or v2.0.0
+```
+
+---
+
+## 3. Version Incrementing Examples
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                    INCREMENTATION EXAMPLES                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌─ PATCH INCREMENT (Bug Fixes Only) ─────────────────────────────┐
+│                                                                 │
+│  v1.0.0  ────→  v1.0.1  ────→  v1.0.2  ────→  v1.0.3          │
+│  Release    1 Bug Fix      2 Bug Fixes    Security Patch       │
+│  (initial)   (hotfix)      (hotfix)       (critical)           │
+│                                                                 │
+│  What changed: Only code fixes, NO new features               │
+│  Who: On-call engineer, emergency fix                         │
+│  When: Critical production bugs only                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+┌─ MINOR INCREMENT (New Features) ──────────────────────────────┐
+│                                                                 │
+│  v1.0.0  ────→  v1.1.0  ────→  v1.2.0  ────→  v1.3.0          │
+│  Initial   Feature Set 1  Feature Set 2  Feature Set 3         │
+│  Release   - Dashboard   - Reports      - Analytics            │
+│            - Export      - Search                              │
+│                                                                 │
+│  What changed: New features, BACKWARD COMPATIBLE              │
+│  Who: Development team + QA                                   │
+│  When: Every 2-4 weeks (feature complete)                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+┌─ MAJOR INCREMENT (Breaking Changes) ───────────────────────────┐
+│                                                                 │
+│  v1.9.0  ────→  v2.0.0  ────→  v2.1.0  ────→  v3.0.0          │
+│  Final v1    API Redesign  Features   Architecture            │
+│              DB Schema     Improvements Overhaul              │
+│              Removed APIs  Enhancements Major Changes         │
+│                                                                 │
+│  What changed: Breaking API changes, INCOMPATIBLE             │
+│  Who: Product + Engineering leadership                        │
+│  When: Strategic product changes (6-12 months)                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+┌─ COMBINED INCREMENT (Features + Fixes) ───────────────────────┐
+│                                                                 │
+│  v1.2.1  ────→  v1.3.0                                        │
+│  5 Bugs Fixed  5 New Features + 3 Bugs Fixed                  │
+│  + 2 Features  
+│                                                                 │
+│  Rule: Increment MINOR (features take precedence)             │
+│        PATCH version resets to 0 → v1.3.0                     │
+│        (Don't use v1.2.6, use v1.3.0)                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Complete Release Cycle Timeline
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                  COMPLETE QUARTERLY RELEASE CYCLE                  ║
+╚════════════════════════════════════════════════════════════════════╝
+
+DEVELOP  ─[●]─[●]─[●]─[●]─[●]─[●]─[●]─[●]─[●]─[●]──────────
+          │   │   │   │   │   │   │   │   │   │
+          F1  F2  F3  F4  F5  F6  F7  F8  F9  F10
+          (Features from feature/ branches)
+
+RELEASE              ────[release/v1.1.0]─────
+                     10 features ready for QA
+                     │
+                     ├─ v1.1.0-rc.1
+                     ├─ v1.1.0-rc.2 (issue found, fixed)
+                     └─ v1.1.0 (approved)
+
+MAIN     ─[v1.0.0]──────────────────[v1.1.0]─
+         Initial release         New release
+         (Month 1)               (Week 4)
+
+Timeline: Week 1      Week 2      Week 3      Week 4
+          Features    Features    Features    Release
+          Dev         Dev         Ready       Testing
+
+
+Emergency during release:
+
+HOTFIX              ──[hotfix/v1.0.1]─
+                    Critical bug found
+                    │
+                    ├─ Diagnose (30 min)
+                    ├─ Fix (1 hour)
+                    ├─ Test (30 min)
+                    └─ Deploy v1.0.1
+
+DEVELOP  ─[●]─[●]─────[●]─[●]─────────
+         (continues while hotfix in progress)
+         (gets v1.0.1 merged back)
+
+MAIN     ─[v1.0.0]──────[v1.0.1]──────[v1.1.0]─
+         Emergency fix  Normal release
+```
+
+---
+
+## 5. Version Tagging Strategy Decision Matrix
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║            WHEN TO INCREMENT EACH VERSION COMPONENT                ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Change Type              │ MAJOR │ MINOR │ PATCH │ Example
+────────────────────────┼───────┼───────┼───────┼──────────────────
+API Endpoint Removed     │  ✓    │   X   │   X   │ v1.0.0 → v2.0.0
+Function Signature      │  ✓    │   X   │   X   │ v1.0.0 → v2.0.0
+Database Breaking       │  ✓    │   X   │   X   │ v1.0.0 → v2.0.0
+Plugin System Change    │  ✓    │   X   │   X   │ v1.0.0 → v2.0.0
+                        │       │       │       │
+New Feature (Safe)      │   X   │  ✓    │   X   │ v1.0.0 → v1.1.0
+New API Endpoint        │   X   │  ✓    │   X   │ v1.0.0 → v1.1.0
+Configuration Option    │   X   │  ✓    │   X   │ v1.0.0 → v1.1.0
+Performance Improve     │   X   │  ✓    │   X   │ v1.0.0 → v1.1.0
+Deprecation Added       │   X   │  ✓    │   X   │ v1.0.0 → v1.1.0
+                        │       │       │       │
+Bug Fix                 │   X   │   X   │  ✓    │ v1.0.0 → v1.0.1
+Security Patch          │   X   │   X   │  ✓    │ v1.0.0 → v1.0.1
+Critical Issue          │   X   │   X   │  ✓    │ v1.0.0 → v1.0.1
+Hotfix Deploy           │   X   │   X   │  ✓    │ v1.0.0 → v1.0.1
+Documentation           │   X   │   X   │  ✓    │ v1.0.0 → v1.0.1
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║                  VERSIONING BEST PRACTICES                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+┌─ DO's ✅ ─────────────────────────────────────────────────────┐
+│                                                                 │
+│  ✅ Use MAJOR.MINOR.PATCH consistently                        │
+│  ✅ Document breaking changes in advance                      │
+│  ✅ Create release notes for each version                     │
+│  ✅ Tag all production releases                               │
+│  ✅ Use annotated tags (git tag -a)                           │
+│  ✅ Sign releases with GPG (git tag -s)                       │
+│  ✅ Maintain CHANGELOG file                                   │
+│  ✅ Plan version bumps before release branch                  │
+│  ✅ Merge hotfixes back to develop                            │
+│  ✅ Support LTS versions with clear EOL dates                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+
+┌─ DON'Ts ❌ ────────────────────────────────────────────────────┐
+│                                                                 │
+│  ❌ Skip version numbers (v1.0.0 → v1.3.0)                   │
+│  ❌ Change already-released tags                              │
+│  ❌ Use vague versions (v1.final, v1.release)                 │
+│  ❌ Tag feature branches directly                             │
+│  ❌ Release directly from develop without testing              │
+│  ❌ Forget to merge hotfixes back to develop                  │
+│  ❌ Mix versioning conventions within project                 │
+│  ❌ Release breaking changes without MAJOR version bump        │
+│  ❌ Use timestamps as versions (20260125.1 format)            │
+│  ❌ Silent deprecation without notice                         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 6. Real-World Version Progression
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║              YEAR-LONG VERSION PROGRESSION EXAMPLE                 ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Month 1:  v1.0.0 ─────────────────────── INITIAL RELEASE
+          ├─ Core authentication
+          ├─ User dashboard
+          ├─ Reports module
+          └─ Database layer
+
+Month 2:  v1.0.1 ─ HOTFIX ─ Critical login bug fixed
+
+Month 3:  v1.1.0 ─────────────────────── FEATURE RELEASE
+          ├─ Export to CSV
+          ├─ Advanced search
+          ├─ Performance improvements (20%)
+          └─ New API endpoints
+
+Month 4:  v1.1.1 ─ HOTFIX ─ Security patch for CVE
+
+Month 5:  v1.2.0 ─────────────────────── FEATURE RELEASE
+          ├─ UI redesign (non-breaking)
+          ├─ Mobile responsive
+          ├─ Dark mode
+          └─ New notifications system
+
+Month 6:  v1.2.1 ─ HOTFIX ─ Bug fix
+          v1.2.2 ─ HOTFIX ─ Security patch
+          v1.2.3 ─ HOTFIX ─ Performance issue
+
+Month 7:  v2.0.0 ─────────────────────── MAJOR RELEASE
+          ├─ API redesigned (breaking)
+          ├─ Database schema rewritten
+          ├─ Microservices architecture
+          └─ 15+ new features
+
+Month 8:  v2.0.1 ─ HOTFIX ─ Critical issue
+          v2.1.0 ─ FEATURE ─ New integrations
+
+Month 9:  v2.1.1 ─ HOTFIX
+          v2.2.0 ─ FEATURE
+
+Months 10-12: Continued releases
+          v2.2.1, v2.3.0, v2.3.1, v2.4.0, etc.
+
+Version Count: 15 total releases in 12 months
+├─ 2 MAJOR versions (v1, v2)
+├─ 10 MINOR versions (features)
+└─ 3-5 PATCH versions (hotfixes)
+```
+
+---
+
+## 7. Pre-release Version Progression
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                PRE-RELEASE VERSION PROGRESSION                     ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Development Timeline:
+
+Week 1-2:  v1.1.0-dev.1  ── Internal builds
+           v1.1.0-dev.2
+           v1.1.0-dev.3
+
+Week 3:    v1.1.0-alpha.1 ── Alpha testers (internal)
+           v1.1.0-alpha.2
+           v1.1.0-alpha.3
+
+Week 4-5:  v1.1.0-beta.1  ── Beta testers (select customers)
+           v1.1.0-beta.2   ── Issue found, released fix
+           v1.1.0-beta.3   ── Ready for release candidate
+
+Week 6:    v1.1.0-rc.1    ── Release candidate (final testing)
+           v1.1.0-rc.2    ── Minor issue found, fixed
+           
+Week 7:    v1.1.0         ── STABLE RELEASE (production)
+
+
+Version Maturity Scale:
+
+v1.1.0-dev.X    ═══════════════════════════════════
+                │ Can crash │ Breaking │ Frequent
+                │ APIs      │ Changes  │ Releases
+
+v1.1.0-alpha.X  ════════════════════════
+                │ Works OK  │ Some     │ Weekly
+                │           │ instability│
+
+v1.1.0-beta.X   ═════════════
+                │ Good      │ Few      │ Bi-weekly
+                │ Stability │ Changes  │
+
+v1.1.0-rc.X     ═══════════
+                │ Nearly    │ Critical │ As-needed
+                │ Final     │ Fixes    │ Only
+
+v1.1.0          ═════════════════════════════════════
+                │ Production│ Stable   │ Long-lived
+                │ Ready     │ Support  │
+```
+
+---
+
+## 8. Multi-Version Support Strategy
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║              PARALLEL VERSION SUPPORT TIMELINE                     ║
+╚════════════════════════════════════════════════════════════════════╝
+
+v1.0.x Branch (LTS - Long Term Support)
+├─ v1.0.0 ────────────────────────────────────────────────
+├─ v1.0.1 ─── HOTFIX
+├─ v1.0.2 ─────────── HOTFIX
+└─ v1.0.3 ──────────────────────── HOTFIX (final)
+   │                              │
+   └──────────────────────────────┘
+   Support: 18 months (Jan 2025 - Jul 2026)
+
+
+v1.1.x Branch (Standard Support)
+├─ v1.1.0 ───────────────────────────────────
+├─ v1.1.1 ─────── HOTFIX
+└─ v1.1.2 ──────────────── HOTFIX (final)
+   │                      │
+   └──────────────────────┘
+   Support: 12 months (Apr 2025 - Apr 2026)
+
+
+v2.0.x Branch (Current Latest)
+├─ v2.0.0 ───────────────────────────────────
+├─ v2.0.1 ──────── HOTFIX
+├─ v2.1.0 ──────────────── FEATURE
+├─ v2.1.1 ──────────────────── HOTFIX
+├─ v2.2.0 ─────────────────────────── FEATURE
+└─ v2.2.1 ──────────────────────────────── HOTFIX
+   │
+   └─ Actively Developed
+   Support: Ongoing
+
+
+Timeline View:
+Jan 2025  Apr 2025  Jul 2025  Oct 2025  Jan 2026  Apr 2026  Jul 2026
+  │         │         │         │         │         │         │
+  v1.0.0    v1.1.0                                v1.0.x EOL
+  ├───────────────────────────────────────────────┤
+  v1.0.x Support (LTS)
+           ├─────────────────────────┤
+           v1.1.x Support
+  v2.0.0 Released
+  ├────────────────────────────────────────┤ Current + Future
+  v2.x.x Latest (Active Development)
+
+Legend:
+────────  Support Active
+    EOL   End of Life
+```
+

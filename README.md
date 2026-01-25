@@ -15,6 +15,7 @@ This documentation project provides an in-depth exploration of:
 - **Develop Branch** - Integration and feature readiness
 - **Release Branch** - Planned release procedures
 - **Hotfix Branch** - Emergency production fixes
+- **Version Tagging** - Semantic versioning and release management
 - **Hands-On Examples** - Complete real-world scenarios
 
 ---
@@ -55,6 +56,7 @@ This documentation project provides an in-depth exploration of:
 | [08-release-branch.md](docs/08-release-branch.md) | Release procedures | Releasing to production |
 | [09-hotfix-branch.md](docs/09-hotfix-branch.md) | Emergency fixes | Critical production issues |
 | [10-hands-on-example.md](docs/10-hands-on-example.md) | Complete scenario | Real-world workflow |
+| [11-version-tagging.md](docs/11-version-tagging.md) | Semantic versioning, version tagging | Version management and releases |
 
 ### Visual Diagrams
 
@@ -63,6 +65,7 @@ This documentation project provides an in-depth exploration of:
 | [01-git-flow-diagram.txt](diagrams/01-git-flow-diagram.txt) | Complete Git Flow structure and timeline |
 | [02-merge-vs-rebase.txt](diagrams/02-merge-vs-rebase.txt) | Visual comparison of merge and rebase |
 | [03-workflow-example.txt](diagrams/03-workflow-example.txt) | Day-to-day developer workflow |
+| [04-version-tagging.txt](diagrams/04-version-tagging.txt) | Semantic versioning and version lifecycle |
 
 ### Command Reference
 
