@@ -1,0 +1,409 @@
+# Merge vs Rebase Visual Comparison
+
+## The Problem: Two Branches Have Diverged
+
+```
+Starting point (both branches at commit C):
+
+develop:    A ─── B ─── C
+                        └─ main branch pointer
+
+feature:    A ─── B ─── C
+                        └─ feature branch pointer
+```
+
+Work happens on both branches:
+
+```
+develop:    A ─── B ─── C ─── D ─── E
+                        ↑
+                  divergence point
+
+feature:    A ─── B ─── C ─── F ─── G
+                        ↑
+                  divergence point
+```
+
+---
+
+## Solution 1: MERGE
+
+### How Merge Works
+
+```
+BEFORE merge:
+develop:    A ─── B ─── C ─── D ─── E
+                        │          ↑
+                        │     merge target
+                        │
+feature:    A ─── B ─── C ─── F ─── G
+                        ↑
+                  branch to merge
+
+AFTER merge:
+develop:    A ─── B ─── C ─── D ─── E ─── M (merge commit)
+                        │           ╱     ╲
+                        └─── F ─── G       both parents
+                        
+feature:    A ─── B ─── C ─── F ─── G (unchanged)
+```
+
+### Merge Result
+
+```
+The merge commit (M) has:
+- Parent 1: E (develop's last commit)
+- Parent 2: G (feature's last commit)
+- Content: All changes from both branches
+
+Timeline stays chronological but non-linear
+History shows when features integrated
+```
+
+### Merge Characteristics
+
+```
+✓ Non-destructive (doesn't rewrite history)
+✓ Complete history preserved
+✓ Clearly shows integration points
+✓ Easy to revert entire feature
+✗ Creates merge commits (clutters history)
+✗ Non-linear history (harder to follow)
+✗ More commits to review
+```
+
+### Git Commands
+
+```bash
+# Switch to target branch
+git checkout develop
+
+# Merge feature into it
+git merge feature
+
+# OR with explicit message
+git merge --no-ff feature -m "Merge feature into develop"
+```
+
+---
+
+## Solution 2: REBASE
+
+### How Rebase Works
+
+```
+BEFORE rebase:
+develop:    A ─── B ─── C ─── D ─── E
+                        ↑
+                  develop tip
+
+feature:    A ─── B ─── C ─── F ─── G
+                              ↑
+                         feature tip
+                    (based on old C)
+
+DURING rebase:
+Git finds commit C (common ancestor)
+Saves changes from F and G (F - C, G - F)
+Applies them on top of E (new base)
+
+AFTER rebase:
+develop:    A ─── B ─── C ─── D ─── E
+                                     ↑
+                            new base for feature
+
+feature:    A ─── B ─── C ─── D ─── E ─── F' ─── G'
+                                         (replayed)
+                                    
+develop:    (unchanged, still at E)
+```
+
+### Rebase Result
+
+```
+Feature's commits F and G are "replayed" on top of E
+New commits F' and G' have:
+- Different hashes (not the same commits!)
+- Same content changes
+- New base commits
+
+Timeline is linear
+History shows single line of commits
+Easier to understand progression
+```
+
+### Rebase Characteristics
+
+```
+✓ Linear history
+✓ Easier to read and understand
+✓ Fewer commits cluttering history
+✓ Can clean up commits with interactive rebase
+✗ Rewrites history (changes commit hashes)
+✗ Dangerous if done on shared branches
+✗ Requires force push
+✗ Harder to recover from mistakes
+```
+
+### Git Commands
+
+```bash
+# Switch to feature branch
+git checkout feature
+
+# Rebase onto develop
+git rebase develop
+
+# Now feature is based on latest develop
+# But this is a local change
+
+# Push to remote (requires force)
+git push -f origin feature
+```
+
+---
+
+## Side-by-Side Comparison
+
+```
+MERGE:
+
+develop → feature:
+Step 1: git checkout develop
+Step 2: git merge feature
+Result: ──E──M
+         ╱ ╲
+    ───C   G
+
+REBASE then MERGE:
+
+feature → develop:
+Step 1: git checkout feature
+Step 2: git rebase develop
+Step 3: git checkout develop
+Step 4: git merge feature
+Result: ──C──D──E──F'──G'
+        
+Linear history!
+```
+
+---
+
+## Visual Timeline Comparison
+
+```
+MERGE RESULT:
+main:    ●─────●─────●  ← main branch
+         │     │     │
+         A     D     M (merge)
+         │           ╱╲
+         B─────E─────  (feature merged)
+         │    ╱
+         C────F
+
+History read direction:
+→ A, B, C (parallel)
+→ D (on main)
+→ E, F (on feature)
+→ M (merge happened)
+
+
+REBASE RESULT:
+main:    ●─────●─────●  ← main branch
+         │     │     │
+         A     D     E'
+         │           │
+         B     ────  F'
+         │         ╱
+         C────────
+
+History read direction:
+→ A, B, C (feature created)
+→ D, E' (main advanced and feature rebased)
+→ F' (feature now on top)
+
+Looks cleaner but actually more complex internally!
+```
+
+---
+
+## Commit Hash Changes
+
+```
+MERGE: No hash changes
+────────────────────
+
+Original commits remain the same:
+feature: c1: "Add login form"
+         c2: "Add validation"
+
+After merge:
+feature: c1: "Add login form"      (hash: abc123)
+         c2: "Add validation"      (hash: def456)
+         
+Hashes unchanged! Can reference by hash later.
+
+
+REBASE: Hash changes!
+────────────────────
+
+Original commits:
+feature: c1: "Add login form"      (hash: abc123)
+         c2: "Add validation"      (hash: def456)
+
+After rebase:
+feature: c1': "Add login form"     (hash: xyz789) ← CHANGED!
+         c2': "Add validation"     (hash: uvw000) ← CHANGED!
+
+Why? New commits have different parent, different tree.
+Can't reference by old hash anymore.
+```
+
+---
+
+## Decision Matrix
+
+```
+When to use each strategy:
+
+                    MERGE              REBASE
+                    ─────              ──────
+
+Shared branch       ✓ Always           ✗ Never
+(main, develop)
+
+Feature branch      ✓ Before PR        ✓ During dev
+(only you work)     
+                    ✓ Clear merge      ✓ Clean history
+                      point            
+
+Test branch         ✓ Before release   ✓ After feature
+                    
+History read        ✓ Shows when       ✓ Linear
+                      features         
+                      integrated       
+
+Need to revert?     ✓ Easy             ✗ Complex
+                    
+Local cleanup?      ✗ Messy            ✓ Perfect
+                    
+Collaborative       ✓ Safe             ✗ Confusing
+development         
+```
+
+---
+
+## Common Pattern: Rebase + Merge
+
+```
+Recommended Git Flow pattern:
+
+┌─ Feature Development
+│  feature: ●─●─●
+│  (you and colleague commit)
+│
+├─ Before Pull Request
+│  git rebase develop (update to latest)
+│  feature: ●'─●'─●' (new hashes on latest main)
+│  (you coordinate with colleague for force push)
+│
+├─ Create Pull Request
+│  feature → develop
+│  Shows linear commits
+│  Easy to review
+│
+└─ Merge to develop
+   git merge --no-ff feature
+   Creates merge commit (clear integration point)
+   Feature branch now merged
+   Delete feature branch
+
+RESULT:
+develop: ●─●─●─●─M (merge commit showing integration)
+                 ╱╲
+              (feature)
+
+Benefits:
+✓ Feature commits are linear (easy to review)
+✓ Merge commit shows integration (easy to revert)
+✓ All benefits of both merge and rebase!
+```
+
+---
+
+## The Golden Rules
+
+```
+Rule 1: NEVER rebase shared branches
+────────────────────────────────────
+✗ WRONG: git checkout develop; git rebase main
+✓ RIGHT: git checkout develop; git merge main
+
+
+Rule 2: ONLY rebase branches you own
+───────────────────────────────────
+✓ RIGHT: Feature branch (only you or pair)
+✗ WRONG: develop branch (team uses it)
+
+
+Rule 3: Force push only after rebase
+──────────────────────────────────────
+✓ RIGHT: feature branch after rebase
+✗ WRONG: main branch (ever)
+
+
+Rule 4: Coordinate rebases with your team
+──────────────────────────────────────────
+If multiple people on feature:
+- Tell them you're rebasing
+- They pull after you push -f
+- Or coordinate via screen share
+```
+
+---
+
+## When Push Fails
+
+```
+Scenario: You rebased, try to push
+
+$ git push origin feature
+error: failed to push some refs to 'origin/feature'
+hint: Updates were rejected because the tip of your
+hint: current branch is behind its remote counterpart
+
+Reason: Remote has commits with different hashes
+They're "ahead" of your rebased commits
+
+Solution: Force push (only if you're sure!)
+$ git push -f origin feature  ← DANGEROUS!
+            ^ force push
+
+Use -f carefully:
+✓ OK on your feature branch
+✗ NEVER on shared branches
+✗ NEVER if others have pulled
+✗ Coordinate with your team
+```
+
+---
+
+## Interactive Rebase Example
+
+```
+Rebase to clean up commits:
+
+$ git rebase -i HEAD~3
+     
+Show editor:
+    pick   abc1234  Add feature skeleton
+    squash def5678  Fix typo in feature
+    squash ghi9012  Add missing validation
+
+Change to:
+    pick   abc1234  Add feature skeleton
+    squash def5678  Fix typo in feature
+    squash ghi9012  Add missing validation
+    
+Result: 1 clean commit instead of 3
+```

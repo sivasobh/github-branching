@@ -1,0 +1,436 @@
+# Complete Git Workflow Diagram
+
+## Overview: From Feature to Production
+
+```
+DEVELOPER'S JOURNEY:
+───────────────────
+
+Start Here          Develop Feature       Code Review        Release
+─────────          ───────────────       ───────────        ───────
+
+git clone          git checkout -b       Create PR on        Test on
+                   feature/name          GitHub              staging
+   ↓                   ↓                      ↓                 ↓
+┌─────┐          ┌──────────┐          ┌──────────┐        ┌─────┐
+│Repo │          │ Feature  │          │ Reviews  │        │ QA  │
+│     │          │ Branch   │          │ Approve  │        │Test │
+└─────┘          └──────────┘          └──────────┘        └─────┘
+  │                  │                      │                 │
+  ├─ git add        │                      │                 │
+  │                ├─ git commit          │                 │
+  └─ git commit    │                      │                 ├─ Pass
+                   ├─ git push             │                 │
+                   │                       ├─ Merge          │
+                   │                       │                 ├─ Fail
+                   │                       │                 │
+                   │                       └─ git merge  ──→ ├─ Fix
+                   │                          --no-ff        │
+                   │                                         └─ Release
+                   │                                            │
+                   │                                            ↓
+                   └────────────────────────────────────→ Production
+```
+
+---
+
+## Weekly Team Workflow
+
+```
+MONDAY (Planning)
+─────────────────
+Team standup
+  │
+  ├─ Feature A: Auth system
+  ├─ Feature B: Dashboard
+  ├─ Feature C: Export
+  └─ Bug fixes
+
+TUESDAY-FRIDAY (Development)
+──────────────────────────────
+
+Dev 1: feature/auth
+       ●─●─●─ (3 days of work)
+       │ │ │
+       │ │ └─ 3rd commit
+       │ └─── 2nd commit
+       └───── 1st commit
+
+Dev 2: feature/dashboard
+           ●─●─●
+           │ │ │
+           │ │ └─ (3 days)
+           │ └─── (2 days)
+           └───── (1 day)
+
+Dev 3: feature/export
+                 ●─●
+                 │ │
+                 │ └─ (2 days)
+                 └─── (1 day)
+
+FRIDAY AFTERNOON (Integration)
+───────────────────────────────
+
+develop before:     ●─●─●─●
+                   (last week)
+
+After merging all:
+feature/auth    ──┐
+feature/dashboard─┼──→ develop: ●─●─●─●─●─●─●
+feature/export  ──┘
+                        (ready for next release)
+```
+
+---
+
+## Daily Developer Workflow
+
+```
+MORNING (9am)
+─────────────
+┌─────────────────────────────┐
+│ Get latest from develop     │
+│ $ git fetch origin          │
+│ $ git pull origin develop   │
+│ (check for updates)         │
+└──────────┬──────────────────┘
+           │
+           ↓
+┌──────────────────────────────┐
+│ Check what team merged       │
+│ $ git log origin/develop     │
+│ (understand context)         │
+└──────────┬──────────────────┘
+           │
+           ↓
+┌──────────────────────────────┐
+│ Switch to feature branch     │
+│ $ git checkout feature/...   │
+│ (continue where left off)    │
+└──────────┬──────────────────┘
+           │
+           ↓
+    DEVELOPMENT TIME (9am-12pm)
+    ──────────────────────────
+    Code
+    Test locally
+    Fix bugs
+    Commit with message
+    $ git add .
+    $ git commit -m "feat(...)"
+           │
+           ↓
+    LUNCH (12pm-1pm)
+           │
+           ↓
+    AFTERNOON (1pm-5pm)
+    ────────────────────
+    Continue coding
+    $ git commit -m "feat(...)"
+    $ git commit -m "test(...)"
+    $ git push origin feature/...
+    Code review from colleagues
+    Fix review comments
+    Push updated code
+           │
+           ↓
+    END OF DAY (5pm)
+    ────────────────
+    ┌──────────────────────┐
+    │ Push final changes   │
+    │ $ git push origin    │
+    │ (leave code for team)│
+    └──────────────────────┘
+```
+
+---
+
+## Pull Request Lifecycle
+
+```
+1. CREATION
+   ──────
+   Developer creates PR on GitHub
+   
+   Automatically shows:
+   ├─ Commits: f1, f2, f3
+   ├─ Files changed: 5 files
+   ├─ Tests: Running... → Pass/Fail
+   ├─ Code coverage: 85%
+   ├─ CI/CD checks
+   └─ Assignee: Team lead
+   
+       ↓
+
+2. REVIEW
+   ──────
+   Code reviewer reads changes
+   
+   Reviewer can:
+   ├─ Comment on code
+   ├─ Suggest changes
+   ├─ Approve PR
+   ├─ Request changes
+   └─ Ask questions
+   
+   Developer responds:
+   ├─ Explains logic
+   ├─ Makes changes
+   ├─ Commits fixes
+   └─ Pushes new commits
+   
+       ↓
+
+3. APPROVAL
+   ──────────
+   When reviewer says "Looks good!"
+   
+   Requirements before merge:
+   ├─ ✓ Minimum 1 approval
+   ├─ ✓ All tests passing
+   ├─ ✓ Code review completed
+   ├─ ✓ Discussions resolved
+   └─ ✓ Up to date with develop
+   
+       ↓
+
+4. MERGE
+   ─────
+   Developer or team lead merges
+   
+   $ git merge --no-ff feature/...
+   
+   Automatic actions:
+   ├─ Create merge commit
+   ├─ Close PR
+   ├─ Update develop branch
+   ├─ Deploy to staging
+   └─ Run integration tests
+   
+       ↓
+
+5. CLEANUP
+   ────────
+   Delete feature branch
+   
+   $ git branch -d feature/...
+   $ git push origin --delete feature/...
+   
+   PR is marked: "Merged"
+   
+       ↓
+
+6. VERIFICATION
+   ─────────────
+   Check staging environment
+   
+   ├─ Code is deployed
+   ├─ Tests are passing
+   ├─ Feature works
+   └─ No regressions
+```
+
+---
+
+## Release Cycle
+
+```
+WEEK 1-2: DEVELOPMENT
+──────────────────────
+feature/A ──┐
+feature/B ──┼──→ develop (integration)
+feature/C ──┘
+             ↓
+        ┌─────────────┐
+        │ 10+ commits │
+        │ daily CI    │
+        │ testing     │
+        └─────────────┘
+
+WEEK 3: RELEASE PREPARATION
+──────────────────────────
+develop branch: ●─●─●─●─●
+                       │
+                       └─ release/1.0 created
+                            │
+                            ├─ Version bump
+                            ├─ Changelog update
+                            ├─ Bug fix 1
+                            └─ Bug fix 2
+                                  │
+                                  ↓
+                           ┌───────────────┐
+                           │ Staging tests │
+                           │ Final check   │
+                           │ UAT approval  │
+                           └───────────────┘
+
+WEEK 4: PRODUCTION RELEASE
+──────────────────────────
+release/1.0 ──┐
+              ├─→ main: v1.0.0 tag
+              │
+              └──→ develop: merge back
+                         │
+                         ↓
+                    ┌──────────────┐
+                    │ Delete branch│
+                    │ Deploy prod  │
+                    │ Monitor      │
+                    └──────────────┘
+```
+
+---
+
+## Parallel Development Example
+
+```
+TIMELINE: Each developer on different features
+
+Monday
+──────
+Develop  ●──────────────────────
+         │
+Auth     ├─●  ← Start
+         │
+API      ├──●  ← Start
+         │
+UI       ├───●  ← Start
+
+Tuesday
+───────
+Develop  ●──────────────────────
+         │
+Auth     ├─●─●  ← Dev continues
+         │
+API      ├──●─●  ← Dev continues
+         │
+UI       ├───●─●  ← Dev continues
+
+Wednesday
+─────────
+Develop  ●─────●──────────────
+         │ ▲
+Auth     ├─●─●┘ ← Dev 1 merges!
+         │
+API      ├──●─●
+         │
+UI       ├───●─●
+
+Thursday
+────────
+Develop  ●─────●────●──────
+         │     ▲    ▲
+Auth     ├─●─●┘    │
+         │         │
+API      ├──●─●───┘ ← Dev 2 merges!
+         │
+UI       ├───●─●
+
+Friday
+──────
+Develop  ●─────●────●────●
+         │                ▲
+Auth     ├─●─●            │
+         │                │
+API      ├──●─●───────────┤
+         │                │
+UI       ├───●─●──────────┘ ← Dev 3 merges!
+
+Result: Everyone's code integrated
+        Ready for next release!
+```
+
+---
+
+## Emergency Hotfix
+
+```
+Normal Release Schedule
+────────────────────────
+develop ──→ release ──→ main (v1.0.0)
+
+Then... CRITICAL BUG FOUND!
+──────────────────────────
+
+main (v1.0.0) ──→ hotfix/critical-bug
+   │
+   └─ Bug discovered at 9am
+      └─ Fix implemented by 10am
+         └─ Merged to main (v1.0.1) by 11am
+            └─ Deployed to production by 12pm
+               └─ Verified working by 1pm
+                  └─ Merged back to develop by 2pm
+
+Timeline:
+9:00 - Bug report
+9:30 - Hotfix created
+10:00 - Fix ready
+10:30 - Merged to main
+11:00 - v1.0.1 released
+12:00 - Deployed
+1:00 - Verified
+2:00 - Synced with develop
+3:00 - Post-incident review
+
+Total time: ~6 hours
+```
+
+---
+
+## Branch Status Check
+
+```
+Current state of all branches:
+
+$ git branch -a -v
+
+  develop          a1b2c3d Add user notifications [2 days old]
+  feature/auth     x9y8z7w Add login form [1 day old]
+  feature/payment  p2q3r4s Add payment processing [3 days old]
+  release/1.0      k5l6m7n Fix critical bugs [4 hours old]
+  main             abc1234 Release v1.0 [1 day old]
+
+Interpretation:
+• develop is recent (2 days)
+• feature/auth almost ready (1 day, small changes)
+• feature/payment in progress (3 days)
+• release/1.0 being prepared (4 hours, final stage)
+• main stable (1 day old version)
+
+Next steps:
+1. Get feature/auth merged to develop
+2. Continue work on feature/payment
+3. Monitor release/1.0 for final release
+4. Keep develop up to date
+```
+
+---
+
+## Common Commands Cheat Sheet
+
+```
+Create & Switch:
+$ git checkout -b feature/name      ← Create feature
+$ git checkout develop              ← Switch branch
+
+Commit & Push:
+$ git add .                         ← Stage changes
+$ git commit -m "message"           ← Commit
+$ git push -u origin feature/name   ← Push
+
+Update from remote:
+$ git fetch origin                  ← Get updates
+$ git pull origin develop           ← Pull develop
+$ git rebase develop                ← Rebase on develop
+
+Merge & Release:
+$ git merge --no-ff feature/name    ← Merge with --no-ff
+$ git tag -a v1.0.0 -m "Release"   ← Create tag
+$ git push origin --tags            ← Push tags
+
+Cleanup:
+$ git branch -d feature/name        ← Delete local
+$ git push origin --delete feature/name ← Delete remote
+```

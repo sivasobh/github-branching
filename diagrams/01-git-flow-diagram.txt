@@ -1,0 +1,280 @@
+# Git Flow Diagram
+
+## Complete Git Flow Model
+
+```
+                          MAIN BRANCH (Production)
+                          ────────────────────
+                                    │
+                                    │ Tag v1.0
+                                    │
+         ┌──────────────────────────●──────────────────────────┐
+         │                          │                          │
+         │                      Tag v1.1                   Tag v1.2
+         │                          │                          │
+         │                          │                          │
+    v1.0.0                     v1.1.0                      v1.2.0
+
+
+                       DEVELOP BRANCH (Integration)
+                       ───────────────────────────
+    ●─────●─────●─────●─────●─────●─────●─────●─────●─────●
+    │     │     │     │     │     │     │     │     │     │
+    └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘ └─┬─┘
+      │     │     │     │     │     │     │     │     │
+    Feature Feature Feature Feature Feature Feature Feature Feature
+    Branch1 Branch2 Branch3 Branch4 Branch5 Branch6 Branch7 Branch8
+
+
+              FEATURE BRANCHES (Isolated Development)
+              ──────────────────────────────────────
+
+    feature/user-auth
+    ●─●─●─●─┘
+              (Merge to develop)
+
+    feature/payment-system
+         ●─●─●─●─●─┘
+                    (Merge to develop)
+
+    feature/dashboard
+            ●─●─┘
+              (Merge to develop)
+
+
+              RELEASE BRANCHES (Release Preparation)
+              ────────────────────────────────────
+
+    release/1.1.0
+    ├─ ●─●─●────┐
+                 ├──→ MAIN (Tagged v1.1.0)
+                 │
+                 └──→ Back to DEVELOP
+
+
+              HOTFIX BRANCHES (Critical Fixes)
+              ───────────────────────────────
+
+    hotfix/critical-bug
+    ├─ ●────┬──→ MAIN (Tagged v1.1.1)
+           │
+           └──→ Back to DEVELOP
+```
+
+---
+
+## Detailed Timeline View
+
+```
+Week 1-2: Development          Week 3: Release             Week 4: Monitor
+────────────────────          ───────────────             ─────────────────
+
+Feature A: ●─●─●┐
+           │    │
+Feature B: │ ●─●─●┐              release/1.0  ●─●
+           │ │    │              ─────────────┐│ │
+Feature C: │ │ ●─●─●┐                       ││ │
+           │ │ │    │                       ││ │
+           ▼ ▼ ▼    │                       ▼▼ ▼
+develop:   ─●─●─●─●─● (ready for release)  MAIN: v1.0.0
+                       │
+                       └─(also merge back to develop)
+
+                                           Then...
+                                           ↓
+                                    Critical bug found!
+                                           ↓
+                                   hotfix/bug ●
+                                             │
+                                        MAIN: v1.0.1
+```
+
+---
+
+## Decision Tree: Which Branch?
+
+```
+                    Need to work on code?
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+              New Feature?          Bug Fix?
+              │                    │
+         YES: FEATURE         ┌────┴────┐
+              │               │         │
+              ↓           Critical? Regular?
+         Is it critical?       │         │
+         In production?     YES│        NO│
+              │               │         │
+              NO              │    Goes to next
+              │               │    release
+              │            HOTFIX  │
+              │               │    │
+              │               │ FEATURE
+              │               │ BRANCH
+         FEATURE ←────────────→
+         BRANCH         │
+            │           ├─→ From MAIN
+            │           ├─→ Fix only
+            │           ├─→ Merge to MAIN + tag
+            │           └─→ Merge to DEVELOP
+            │
+            ├─→ From DEVELOP
+            ├─→ Feature code
+            ├─→ Merge to DEVELOP
+            └─→ Delete after merge
+```
+
+---
+
+## State Transitions
+
+```
+                    START (main + develop exist)
+                            │
+                            ▼
+                  ┌─────────────────────┐
+                  │ Feature Development │
+                  └────────┬────────────┘
+                           │
+                           ▼
+            ┌──────────────────────────────┐
+            │ Feature → Merge → Develop    │
+            │ (multiple features)          │
+            └────────────┬─────────────────┘
+                         │
+                         ▼
+            ┌──────────────────────────────┐
+            │ Ready for Release?           │
+            │ All tests pass?              │
+            │ Documentation done?          │
+            └────────────┬────────────────┘
+                         │
+                  YES───┐ NO
+                    │   └─→ Continue developing
+                    │
+                    ▼
+      ┌─────────────────────────────┐
+      │ Create Release Branch       │
+      │ - Version bump              │
+      │ - Changelog update          │
+      │ - Final testing             │
+      └──────────┬──────────────────┘
+                 │
+                 ▼
+      ┌─────────────────────────────┐
+      │ Release to Main             │
+      │ - Merge release to main     │
+      │ - Create version tag        │
+      │ - Deploy to production      │
+      └──────────┬──────────────────┘
+                 │
+                 ▼
+      ┌─────────────────────────────┐
+      │ Sync Develop                │
+      │ - Merge release back        │
+      │ - Delete release branch     │
+      └──────────┬──────────────────┘
+                 │
+                 ▼
+      ┌─────────────────────────────┐
+      │ Monitor Production          │
+      │ - Watch error rates         │
+      │ - Check performance         │
+      │ - Listen for user issues    │
+      └──────────┬──────────────────┘
+                 │
+            ┌────┴─────┐
+            │           │
+         No bugs    Critical bug!
+            │           │
+            ▼           ▼
+        Continue   Create Hotfix
+        Next Dev   from MAIN
+        Cycle      │
+                   ├─ Fix
+                   ├─ Version bump
+                   ├─ Merge to MAIN + tag
+                   └─ Merge to DEVELOP
+```
+
+---
+
+## Merging Strategy
+
+```
+When merging feature to develop:
+
+git merge --no-ff feature/branch
+
+RESULT:
+develop: ─────●─────●─────●
+              ↑           ↑
+          Feature    Merge Commit
+          commit    (explicit record)
+
+Benefits:
+✓ History shows feature integration point
+✓ Can revert entire feature easily
+✓ Clear feature boundaries
+✓ Easy to bisect for bugs
+```
+
+---
+
+## Parallel Development
+
+```
+Multiple developers working simultaneously:
+
+Dev A: feature/auth
+       ●─●─●─┐
+              │
+Dev B: feature/api
+       ├──●─●─●─┐
+       │        │
+Dev C: feature/ui
+       ├────●─●─●─┐
+       │          │
+       ▼          ▼
+develop branch: ─●─●─●─● (integration point)
+       ▲       ▲
+       │       └─ Merge A
+       └─────────── Merge B,C
+
+Each developer:
+- Works independently
+- No interference
+- Can commit to own branch
+- Code review before merge
+- Only conflicts at merge (usually minor)
+```
+
+---
+
+## Version Tagging on Main
+
+```
+MAIN BRANCH:
+
+●───────●───────●───────●───────●
+│       │       │       │       │
+v1.0.0  v1.0.1  v1.1.0  v1.1.1  v1.2.0
+│       │       │       │       │
+└─ Initial
+   └─ Hotfix
+       └─ New features
+           └─ Another hotfix
+               └─ More features
+
+Semantic Versioning: MAJOR.MINOR.PATCH
+
+v1.0.0: Initial release
+  ↑ MAJOR = breaking changes
+
+v1.1.0: New features (backward compatible)
+    ↑ MINOR = feature additions
+
+v1.1.1: Bug fixes only
+      ↑ PATCH = patches
+```
