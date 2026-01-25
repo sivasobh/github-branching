@@ -221,6 +221,24 @@
 
 ---
 
+### Level 13: Cherry Picking & Feature Flipping
+```
+📄 13-cherry-picking-feature-flipping.md
+├─ Cherry picking fundamentals
+├─ Selective commit application
+├─ Feature flag concepts
+├─ Gradual rollout strategies
+├─ A/B testing with flags
+├─ Emergency rollback
+└─ Next: Master advanced techniques
+```
+
+**Read when:** Learning advanced workflow techniques
+**Time needed:** 35-45 minutes
+**Key takeaway:** Selective commits and controlled releases
+
+---
+
 ## 🎨 Visual Diagrams
 
 ### Diagram 1: Git Flow Structure
@@ -265,6 +283,17 @@
 ├─ Release cycle timeline
 ├─ Pre-release progression
 └─ When: Understanding version management
+```
+
+### Diagram 5: Cherry Picking & Feature Flipping
+```
+📄 diagrams/05-cherry-picking-feature-flipping.txt
+├─ Cherry picking concept
+├─ Cherry pick vs merge
+├─ Conflict resolution
+├─ Feature flag concept
+├─ Gradual rollout timeline
+└─ When: Advanced workflow techniques
 ```
 
 ---

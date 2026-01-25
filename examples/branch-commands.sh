@@ -489,3 +489,87 @@ git st                   # Instead of: git status
 # git branch -d hotfix/bug && git push origin --delete hotfix/bug
 
 # ============================================================================
+# CHERRY PICKING
+# ============================================================================
+
+# Cherry pick single commit
+git cherry-pick abc1234
+
+# Cherry pick range of commits (from C to E, exclusive of C, inclusive of E)
+git cherry-pick C^..E
+
+# Cherry pick multiple specific commits
+git cherry-pick abc1234 def5678 ghi9101
+
+# Interactive cherry pick (choose which commits to apply)
+git cherry-pick -i abc1234..def5678
+
+# Cherry pick with conflict resolution
+git cherry-pick abc1234
+# (resolve conflicts in editor)
+git add .
+git cherry-pick --continue
+
+# Continue cherry pick after resolving conflicts
+git cherry-pick --continue
+
+# Skip a problematic commit during cherry pick
+git cherry-pick --skip
+
+# Abort cherry pick if issues arise
+git cherry-pick --abort
+
+# Show which commits are cherry picked (not merged from other branch)
+git log --cherry-pick origin/main..HEAD
+
+# Cherry pick specific commit from another branch
+git cherry-pick origin/feature/important-fix
+
+# ============================================================================
+# FEATURE FLIPPING / FEATURE FLAGS
+# ============================================================================
+
+# Example: Feature flag configuration in code
+# 
+# JavaScript:
+# const featureFlags = {
+#   'new-dashboard': true,
+#   'dark-mode': false,
+#   'premium-feature': true,
+#   'beta-features': false
+# };
+#
+# Usage:
+# if (featureFlags['new-dashboard']) {
+#   renderNewDashboard();
+# } else {
+#   renderOldDashboard();
+# }
+#
+# With user context:
+# const newCheckout = flags.isEnabled('new-checkout', { userId: 123 });
+#
+# A/B testing variant:
+# const variant = flags.getVariant('checkout-button');
+# if (variant === 'red-large') {
+#   showRedLargeButton();
+# } else if (variant === 'blue-small') {
+#   showBlueSmallButton();
+# }
+
+# Enable feature flag via config file
+# echo \"new-checkout: true\" >> features.yml
+
+# Disable feature flag (instant rollback)
+# echo \"new-checkout: false\" >> features.yml
+
+# Gradual rollout (5% canary)
+# echo \"checkout-rollout-percent: 5\" >> features.yml
+
+# Increase rollout to 50%
+# echo \"checkout-rollout-percent: 50\" >> features.yml
+
+# Full rollout to 100%
+# echo \"checkout-rollout-percent: 100\" >> features.yml
+
+# ============================================================================

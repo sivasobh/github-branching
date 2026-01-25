@@ -1,0 +1,501 @@
+# Cherry Picking & Feature Flipping Diagrams
+
+## 1. Cherry Picking Visual Guide
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                    CHERRY PICKING CONCEPT                          ║
+╚════════════════════════════════════════════════════════════════════╝
+
+SOURCE BRANCH (feature/security-fix):
+┌─────────────────────────────────────────────────────────────────┐
+│ [A] → [B: Fix security bug] → [C] → [D] → [E: Refactor]        │
+│             ↓                                                    │
+│        (select this)                                            │
+└─────────────────────────────────────────────────────────────────┘
+
+        ↓↓↓ git cherry-pick <commit-B> ↓↓↓
+
+TARGET BRANCH (main):
+┌─────────────────────────────────────────────────────────────────┐
+│ [W] → [X] → [Y] → [Z] → [B': Fix security bug (new hash)]     │
+│                          ↑                                       │
+│                    (applied here, same changes)                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Note: B' has same code changes as B but different hash
+      because it's based on different parent commit
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║                  CHERRY PICK VS MERGE WORKFLOW                     ║
+╚════════════════════════════════════════════════════════════════════╝
+
+MERGE APPROACH:
+┌─────────────────────┐
+│ feature/auth        │
+│ ├─ A: Add login     │
+│ ├─ B: Add signup    │
+│ ├─ C: Add reset     │
+│ └─ [MERGE COMMIT]   │
+│         ↓           │
+│ main: ──●───────────●  
+│         (merge)
+
+Result: All commits (A,B,C) merged together
+
+---
+
+CHERRY PICK APPROACH:
+┌─────────────────────┐
+│ feature/auth        │
+│ ├─ A: Add login     │
+│ ├─ B: Add signup    │ ← Only pick this
+│ ├─ C: Add reset     │
+│ └─ D: Fix bug       │
+│         │           │
+│         ↓           │
+│ main: ──●───────────●  
+│         (cherry-pick B only)
+
+Result: Only commit B' applied (same changes, new hash)
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║               CHERRY PICK MULTIPLE COMMITS                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Scenario: Pick range of commits
+
+SOURCE:
+[A] → [B] → [C] → [D] → [E] → [F]
+       ↑       ↑
+    Pick from B to D (inclusive)
+
+COMMAND:
+git cherry-pick B..D  (NOT inclusive of B, only C D)
+git cherry-pick B^..D (Inclusive of B, C, D)
+
+TARGET:
+[X] → [Y] → [Z] → [B'] → [C'] → [D']
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║              CHERRY PICK CONFLICT RESOLUTION                       ║
+╚════════════════════════════════════════════════════════════════════╝
+
+1. Cherry pick starts
+   ↓
+2. Conflict detected
+   ├─ CONFLICT (content): file.js
+   └─ error: could not apply abc1234...
+
+3. Resolve conflict
+   ├─ Edit file.js
+   ├─ Fix merge markers
+   └─ Save file
+
+4. Stage the resolution
+   └─ git add file.js
+
+5. Continue cherry pick
+   ├─ git cherry-pick --continue
+   ├─ OR git cherry-pick --abort (give up)
+   └─ OR git cherry-pick --skip (skip this commit)
+
+Result:
+✅ Conflict resolved
+✅ Cherry pick complete
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║                CHERRY PICK USE CASES                               ║
+╚════════════════════════════════════════════════════════════════════╝
+
+1. BACKPORTING HOTFIX
+┌──────────────┐
+│ develop      │ (contain fix)
+│ ├─ Fix: CVE  │
+│ └─ Feature   │
+└─────┬────────┘
+      │
+      ├─ cherry-pick fix
+      ↓
+   ┌──────────┐
+   │ main     │ (production)
+   │ ├─ Fix   │ (applied via cherry-pick)
+   │ └─ v1.0.1│ (released immediately)
+   └──────────┘
+
+
+2. SELECTIVE FEATURE IN RELEASE
+┌──────────────────────┐
+│ develop              │
+│ ├─ Feature A ✅      │ (needed)
+│ ├─ Feature B         │ (defer)
+│ ├─ Feature C ✅      │ (needed)
+│ └─ Feature D         │ (defer)
+└─────┬────────────────┘
+      │
+      ├─ cherry-pick A and C only
+      ↓
+   ┌──────────────┐
+   │ release/v1.1 │
+   │ ├─ Feature A │
+   │ ├─ Feature C │
+   │ └─ v1.1.0    │
+   └──────────────┘
+
+
+3. FIX WRONG BRANCH
+┌────────────────┐
+│ develop        │
+│ ├─ Bug Fix ✅  │ (should be on hotfix)
+│ └─ v2.0.0      │
+└─────┬──────────┘
+      │
+      ├─ cherry-pick fix
+      ↓
+   ┌────────────────┐
+   │ hotfix/v1.0.1  │
+   │ ├─ Bug Fix     │ (applied via cherry-pick)
+   │ └─ v1.0.1      │ (release immediately)
+   └────────────────┘
+   
+   Then remove from develop before merge
+```
+
+---
+
+## 2. Feature Flipping Concepts
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║                   FEATURE FLAG CONCEPT                             ║
+╚════════════════════════════════════════════════════════════════════╝
+
+CODE (Always deployed):
+┌──────────────────────────────────────────────────────┐
+│ if (isFeatureEnabled('new-checkout')) {             │
+│   showNewCheckout();                                │
+│ } else {                                             │
+│   showOldCheckout();                                │
+│ }                                                    │
+└──────────────────────────────────────────────────────┘
+
+CONFIGURATION (Changes without code):
+┌──────────────────────────────────────────────────────┐
+│ features:                                            │
+│   new-checkout: true    ← Change this               │
+│   dark-mode: false      ← Without redeploying code! │
+│   premium-feature: true                            │
+└──────────────────────────────────────────────────────┘
+
+Flag ON:   New feature visible     ✅
+Flag OFF:  Old feature visible     ✅
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║            DEPLOYMENT vs RELEASE WITH FEATURE FLAGS                ║
+╚════════════════════════════════════════════════════════════════════╝
+
+WITHOUT FEATURE FLAGS:
+┌─────────────┐
+│ Code Change │
+│ (in develop)│
+└────┬────────┘
+     │
+     ├─ Create PR
+     ├─ Get approval
+     ├─ Merge to develop
+     └─ Wait for release date...
+     
+[Days/Weeks Later]
+     
+     ├─ Create release branch
+     ├─ Test
+     ├─ Deploy to production
+     └─ New feature IMMEDIATELY visible to users
+        (can't stop it if bugs found!)
+
+
+WITH FEATURE FLAGS:
+┌─────────────┐
+│ Code Change │
+│ + Flag      │
+│ (flag: OFF) │
+└────┬────────┘
+     │
+     ├─ Create PR
+     ├─ Get approval
+     ├─ Merge to develop
+     ├─ Merge to main
+     ├─ Deploy to production
+     └─ Code deployed, feature HIDDEN (flag: OFF)
+     
+[Days/Weeks Later - Ready for release]
+     
+     ├─ Enable flag for 5% users
+     ├─ Monitor for 1-2 hours
+     ├─ No errors? → Enable for 25%
+     ├─ Still good? → Enable for 50%
+     ├─ Still good? → Enable for 100%
+     └─ Feature gradually visible to users
+        (can turn off instantly if bugs found!)
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║                GRADUAL FEATURE ROLLOUT                             ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Timeline: Gradual rollout of new feature
+
+8:00 AM   Day 1
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  5% Canary Deployment                      ╔═══════╗  │
+│  ├─ Early adopters see feature              ║ GREEN ║  │
+│  ├─ Monitor: 0 errors, good performance     ║ 5% ✅  ║  │
+│  └─ Metrics: Baseline established           ╚═══════╝  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+10:00 AM  Day 1
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  25% Beta Deployment                       ╔═══════╗  │
+│  ├─ More users see feature                  ║ GREEN ║  │
+│  ├─ Monitor: Error rate < 0.1%              ║ 25% ✅ ║  │
+│  └─ Metrics: Conv rate similar to canary    ╚═══════╝  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+2:00 PM   Day 1
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  50% Regular Deployment                    ╔═══════╗  │
+│  ├─ Half of users see feature               ║ GREEN ║  │
+│  ├─ Monitor: All metrics green              ║ 50% ✅ ║  │
+│  └─ Confidence: High                        ╚═══════╝  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+8:00 PM   Day 1
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  100% Full Release                         ╔═══════╗  │
+│  ├─ All users see feature                   ║ GREEN ║  │
+│  ├─ Monitor: Still stable                   ║100% ✅ ║  │
+│  └─ Success: No rollback needed             ╚═══════╝  │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+[Next Day]
+
+8:00 AM   Day 2
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  Feature Stable                                         │
+│  ├─ After 24 hours monitoring                          │
+│  ├─ Remove feature flag from code                      │
+│  ├─ Commit: "refactor: remove feature flag"            │
+│  └─ Include in next release                            │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║              EMERGENCY ROLLBACK WITH FLAGS                         ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Timeline showing why feature flags are critical
+
+┌──────────────────────────────────────────────────────────┐
+│ 3:00 PM - Deploy new payment feature                    │
+│ Code with feature (flag: OFF) deployed to production    │
+│ Status: ✅ All good                                     │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│ 3:15 PM - Enable flag for 5% users (canary test)        │
+│ Status: ✅ No errors                                    │
+└──────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│ 3:20 PM - ISSUE DETECTED!                               │
+│ ├─ Payment failures increasing                          │
+│ ├─ Error rate: 2% of transactions failing               │
+│ └─ Revenue impact: $1000/hour                           │
+└──────────────────────────────────────────────────────────┘
+
+OPTION A: WITHOUT FEATURE FLAGS
+┌────────────────────────────────────────────────────────┐
+│                                                        │
+│ 1. Create hotfix commit          [~10 min]            │
+│ 2. Wait for code review          [~15 min]            │
+│ 3. Build new version             [~5 min]             │
+│ 4. Deploy new code               [~10 min]            │
+│ 5. Verify deployment             [~5 min]             │
+│                                 ─────────             │
+│ TOTAL TIME TO ROLLBACK: ~45 minutes                   │
+│                                                        │
+│ DAMAGE: 45 min × $1000/hour = $750 lost               │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+
+OPTION B: WITH FEATURE FLAGS ⭐
+┌────────────────────────────────────────────────────────┐
+│                                                        │
+│ 1. Disable feature flag          [~5 seconds]         │
+│ 2. Verify rollback               [~5 seconds]         │
+│                                 ─────────             │
+│ TOTAL TIME TO ROLLBACK: ~10 seconds                   │
+│                                                        │
+│ DAMAGE: Almost nothing! ✅                            │
+│ Instant rollback, no code deployment needed           │
+│                                                        │
+└────────────────────────────────────────────────────────┘
+
+Winner: FEATURE FLAGS (45 minutes faster!)
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║                   FEATURE FLAG TYPES                               ║
+╚════════════════════════════════════════════════════════════════════╝
+
+1. RELEASE TOGGLE (Simple On/Off)
+   ┌──────────────────────────────┐
+   │ isEnabled('new-feature')      │
+   │ Returns: true or false        │
+   │ All users: Same behavior      │
+   │ Timeline: Days to weeks       │
+   └──────────────────────────────┘
+
+2. PERMISSION TOGGLE (Role-Based)
+   ┌──────────────────────────────┐
+   │ isEnabled('admin-dashboard', │
+   │    {role: 'admin'})           │
+   │ Returns: true if admin        │
+   │ Different by: User role       │
+   │ Timeline: Long-term           │
+   └──────────────────────────────┘
+
+3. EXPERIMENT TOGGLE (A/B Testing)
+   ┌──────────────────────────────┐
+   │ getVariant('checkout-button') │
+   │ Returns: 'red' or 'blue'      │
+   │ Different by: User group      │
+   │ Timeline: Weeks (test period) │
+   │ Tracks: Conversion rates      │
+   └──────────────────────────────┘
+
+4. OPS TOGGLE (Performance Control)
+   ┌──────────────────────────────┐
+   │ isEnabled('cache-queries')    │
+   │ Returns: true or false        │
+   │ Different by: Load conditions │
+   │ Timeline: Temporary (as-need) │
+   │ Purpose: Scaling & tuning     │
+   └──────────────────────────────┘
+
+
+╔════════════════════════════════════════════════════════════════════╗
+║              MONITORING DURING ROLLOUT                             ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Key Metrics to Track:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│ Feature Rollout Progress:                              │
+│ 5%   ████░░░░░░░░░░░░░░░  Users enabled               │
+│ 25%  ██████████░░░░░░░░░░  Users enabled               │
+│ 50%  ██████████████░░░░░░░  Users enabled              │
+│ 100% ████████████████████░  Users enabled              │
+│                                                         │
+│ Error Rate:                                             │
+│ Threshold: 0.1% (alert if exceeded)                    │
+│ Current: 0.05% ✅                                      │
+│                                                         │
+│ Latency Impact:                                         │
+│ Baseline: 200ms                                         │
+│ Current: 205ms (acceptable increase)                   │
+│                                                         │
+│ Conversion Rate (if applicable):                        │
+│ Old feature: 15.0%                                      │
+│ New feature: 15.2% (statistically insignificant)       │
+│ Status: Monitor, not yet conclusive                    │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Cherry Pick + Feature Flags Combined
+
+```
+╔════════════════════════════════════════════════════════════════════╗
+║          COMBINED: CHERRY PICK + FEATURE FLAGS                     ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Real-World Scenario: Security hotfix with controlled rollout
+
+STEP 1: Create Hotfix on Main
+┌──────────────────────────────────────┐
+│ hotfix/v1.0.1                        │
+│ ├─ Commit: "fix(security): CVE-2026" │
+│ ├─ Code wrapped with feature flag    │
+│ │   if (isEnabled('hotfix-sec-1')) { │
+│ │     use_new_code();                │
+│ │   } else {                          │
+│ │     use_old_code();                │
+│ │   }                                 │
+│ └─ Configuration: flag = false       │
+└──────────────────────────────────────┘
+
+STEP 2: Deploy to Production
+┌──────────────────────────────────────┐
+│ Production servers                   │
+│ ├─ New code deployed ✅              │
+│ ├─ Feature flag = OFF (disabled)     │
+│ ├─ Users see: old code path          │
+│ └─ Status: Safe, no impact           │
+└──────────────────────────────────────┘
+
+STEP 3: Cherry Pick Same Fix to Develop
+┌──────────────────────────────────────┐
+│ develop branch                       │
+│ ├─ git cherry-pick <hotfix-commit>   │
+│ ├─ Same fix applied to develop       │
+│ ├─ Feature flag included             │
+│ └─ Both branches have same code      │
+└──────────────────────────────────────┘
+
+STEP 4: Gradual Rollout of Fix
+┌──────────────────────────────────────┐
+│ Enable flag gradually                │
+│                                      │
+│ 8:00 AM  → 5% users (internal only) │
+│ 10:00 AM → 25% users                │
+│ 2:00 PM  → 50% users                │
+│ 8:00 PM  → 100% users               │
+│                                      │
+│ Monitor: 0 errors, performance good │
+└──────────────────────────────────────┘
+
+STEP 5: Remove Feature Flag (Cleanup)
+┌──────────────────────────────────────┐
+│ After 24+ hours of stability:        │
+│ ├─ Remove if statements (flag logic) │
+│ ├─ Keep only new code path           │
+│ ├─ Commit: "refactor: remove flag"   │
+│ └─ Include in next release           │
+└──────────────────────────────────────┘
+
+Benefits:
+✅ Cherry Pick: Applied fix to both branches
+✅ Feature Flag: Safe gradual rollout
+✅ Instant Rollback: Could disable flag if issues
+✅ User Confidence: Tested on production safely
+```
+

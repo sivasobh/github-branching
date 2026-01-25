@@ -190,6 +190,7 @@ git config --global alias.visual 'log --oneline --graph --all'
 | Real Example | [10-hands-on-example.md](docs/10-hands-on-example.md) |
 | Version Tagging | [11-version-tagging.md](docs/11-version-tagging.md) |
 | GitHub Actions | [12-github-actions-automation.md](docs/12-github-actions-automation.md) |
+| Cherry Picking & Feature Flags | [13-cherry-picking-feature-flipping.md](docs/13-cherry-picking-feature-flipping.md) |
 | All Commands | [examples/branch-commands.sh](examples/branch-commands.sh) |
 | Commit Examples | [examples/commit-examples.md](examples/commit-examples.md) |
 | Visual Diagrams | [diagrams/](diagrams/) folder |

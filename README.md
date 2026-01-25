@@ -17,6 +17,7 @@ This documentation project provides an in-depth exploration of:
 - **Hotfix Branch** - Emergency production fixes
 - **Version Tagging** - Semantic versioning and release management
 - **GitHub Actions Automation** - Automated versioning, branch protection, and release workflows
+- **Cherry Picking & Feature Flipping** - Advanced techniques for selective commits and controlled rollouts
 - **Hands-On Examples** - Complete real-world scenarios
 
 ---
@@ -59,6 +60,7 @@ This documentation project provides an in-depth exploration of:
 | [10-hands-on-example.md](docs/10-hands-on-example.md) | Complete scenario | Real-world workflow |
 | [11-version-tagging.md](docs/11-version-tagging.md) | Semantic versioning, version tagging | Version management and releases |
 | [12-github-actions-automation.md](docs/12-github-actions-automation.md) | GitHub Actions workflows | Automated CI/CD pipelines |
+| [13-cherry-picking-feature-flipping.md](docs/13-cherry-picking-feature-flipping.md) | Cherry picking & feature flips | Advanced workflow techniques |
 
 ### Visual Diagrams
 
@@ -68,6 +70,7 @@ This documentation project provides an in-depth exploration of:
 | [02-merge-vs-rebase.txt](diagrams/02-merge-vs-rebase.txt) | Visual comparison of merge and rebase |
 | [03-workflow-example.txt](diagrams/03-workflow-example.txt) | Day-to-day developer workflow |
 | [04-version-tagging.txt](diagrams/04-version-tagging.txt) | Semantic versioning and version lifecycle |
+| [05-cherry-picking-feature-flipping.txt](diagrams/05-cherry-picking-feature-flipping.txt) | Cherry picking and feature flipping workflows |
 
 ### Command Reference
 
